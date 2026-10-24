@@ -28,7 +28,8 @@ render_svg(model, Path("build/parsed-supported.svg"))
 string. `parse_file(path)` reads UTF-8 and records the supplied path in source
 locations. Filesystem and decoding failures propagate as Python exceptions.
 Neither parsing API writes files or invokes Graphviz. The programmatic rendering
-example remains independent of the parser; the general CLI is the next TODO.
+example remains independent of the parser. The [CLI](cli.md) connects the parser
+to rendering for command-line use.
 
 ## Results and diagnostics
 

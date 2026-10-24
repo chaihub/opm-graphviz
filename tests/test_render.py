@@ -1,11 +1,13 @@
 """Rendering checks against actual Graphviz output, without pixel snapshots."""
 
+import base64
 from dataclasses import replace
 import json
 from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 from examples.supported_model import build_model
@@ -14,6 +16,7 @@ from opm_graphviz.model import (
     Model, ObjectState, SourceLocation,
 )
 from opm_graphviz.render import render_svg, to_dot
+from opm_graphviz.parser import parse_text
 
 NS = {"svg": "http://www.w3.org/2000/svg"}
 
@@ -35,6 +38,47 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(render_svg(model, self.output), self.output)
         return ET.parse(self.output).getroot()
 
+    def test_legend_is_boxed_embedded_and_below_all_entities(self):
+        model = build_model()
+        root = self.render(model)
+        legend, = members(root, "opm-legend")
+        self.assertIsNone(legend.get("data-source-path"))
+        border = legend.find("svg:polygon", NS)
+        self.assertEqual(border.get("stroke"), "black")
+        self.assertEqual(float(border.get("stroke-width", "1")), 1)
+        image = legend.find("svg:image", NS)
+        uri = image.get("{http://www.w3.org/1999/xlink}href")
+        prefix, data = uri.split(",", 1)
+        self.assertEqual(prefix, "data:image/png;base64")
+        asset = Path(__file__).resolve().parents[1] / "docs/OPM legend.drawio.png"
+        self.assertEqual(base64.b64decode(data), asset.read_bytes())
+        self.assertIn("meet", image.get("preserveAspectRatio"))
+        # Graphviz coordinates increase upwards. Include disconnected entities
+        # and cluster bounding boxes, not only nodes with outgoing model links.
+        layout = json.loads(to_dot(model).pipe(format="json", quiet=True))
+        decoration = next(n for n in layout["objects"] if n.get("id") == "opm-legend")
+        top = float(decoration["pos"].split(",")[1]) + float(decoration["height"]) * 36
+        for node in layout["objects"]:
+            if node.get("class") not in {"opm-entity", "opm-state"}:
+                continue
+            if "bb" in node:
+                bottom = float(node["bb"].split(",")[1])
+            elif "pos" in node:
+                bottom = float(node["pos"].split(",")[1]) - float(node["height"]) * 36
+            else:
+                continue
+            self.assertLess(top, bottom)
+
+    def test_legend_can_be_disabled_without_asset(self):
+        with patch("opm_graphviz.render._LEGEND_PATH", Path(self.temp.name) / "missing.png"):
+            with self.assertRaisesRegex(FileNotFoundError, "Legend image not found"):
+                render_svg(build_model(), self.output)
+            render_svg(build_model(), self.output, include_legend=False)
+            self.assertNotIn("opm-legend", to_dot(build_model(), include_legend=False).source)
+        root = ET.parse(self.output).getroot()
+        self.assertEqual(members(root, "opm-legend"), [])
+        self.assertEqual(len(members(root, "opm-link")), 19)
+
     def test_complete_example_svg_and_provenance(self):
         model = build_model()
         root = self.render(model)
@@ -52,7 +96,7 @@ class RenderTests(unittest.TestCase):
 
     def test_all_markers_at_semantic_endpoints(self):
         model = build_model()
-        laid_out = json.loads(to_dot(model).pipe(format="json"))
+        laid_out = json.loads(to_dot(model, include_legend=False).pipe(format="json"))
         edges = {edge["id"]: edge for edge in laid_out["edges"] if "id" in edge}
         # Hand-reviewed expected (tail, head) pairs in supported.opl statement order.
         expected = [
@@ -74,6 +118,93 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(edges["l6"]["lhead"], "cluster_e0")
         self.assertEqual(edges["l2"]["ltail"], "cluster_e0")
         self.assertEqual(edges["l16"]["lhead"], "cluster_e0")
+
+    def test_parsed_relationships_keep_their_semantic_endpoints(self):
+        # Declare Target first so insertion order cannot substitute for semantic
+        # direction. Expected marked ends come from the README, not _MARKERS.
+        cases = [
+            ("object", "object", 'consists of "Target"', {"Subject"}),
+            ("object", "process", 'exhibits "Target"', {"Subject"}),
+            ("object", "object", 'is an "Target"', {"Target"}),
+            ("process", "process", 'is "Target"', {"Target"}),
+            ("object", "object", 'is an instance of "Target"', {"Target"}),
+            ("object", "object", 'relates to "Target" as "tag"', {"Target"}),
+            ("object", "object", 'relates bidirectionally to "Target" as "tag"', {"Subject", "Target"}),
+            ("process", "object", 'consumes "Target"', {"Subject"}),
+            ("process", "object", 'yields "Target"', {"Target"}),
+            ("process", "object", 'affects "Target"', {"Subject", "Target"}),
+            ("object", "process", 'handles "Target"', {"Target"}),
+            ("process", "object", 'requires "Target"', {"Subject"}),
+        ]
+        for subject_type, target_type, phrase, marked_ends in cases:
+            with self.subTest(phrase=phrase):
+                text = (f'{target_type} "Target".\n{subject_type} "Subject".\n'
+                        f'"Subject" {phrase}.')
+                result = parse_text(text)
+                self.assertEqual(result.diagnostics, ())
+                model = result.require_model()
+                layout = json.loads(to_dot(model, include_legend=False).pipe(format="json"))
+                nodes = {node["_gvid"]: node for node in layout["objects"]}
+                edge, = [edge for edge in layout["edges"] if edge.get("id") == "l0"]
+                self.assertEqual(nodes[edge["tail"]]["label"], "Subject")
+                self.assertEqual(nodes[edge["head"]]["label"], "Target")
+                actual_marks = set()
+                if edge.get("_tdraw_"):
+                    actual_marks.add(nodes[edge["tail"]]["label"])
+                if edge.get("_hdraw_"):
+                    actual_marks.add(nodes[edge["head"]]["label"])
+                self.assertEqual(actual_marks, marked_ends)
+                root = self.render(model)
+                group, = members(root, "opm-link")
+                self.assertEqual(group.get("data-subject"), "Subject")
+                self.assertEqual(group.get("data-target"), "Target")
+
+    def test_same_named_states_stay_with_their_own_objects(self):
+        model = parse_text('\n'.join([
+            'object "First".', 'object "Second".',
+            '"Second" has state "ready".', '"First" has state "ready".',
+            '"First" relates bidirectionally to "Second" as "paired".',
+        ])).require_model()
+        root = self.render(model)
+        states = members(root, "opm-state")
+        self.assertEqual(len(states), 2)
+        self.assertEqual({g.get("data-owner") for g in states}, {"First", "Second"})
+        self.assertEqual(len({g.get("id") for g in states}), 2)
+        self.assertTrue(all(g.find("svg:text", NS).text == "ready" for g in states))
+        layout = json.loads(to_dot(model, include_legend=False).pipe(format="json"))
+        objects = {obj["name"]: obj for obj in layout["objects"]}
+        for state_id, parent_id in (("s0", "cluster_e1"), ("s1", "cluster_e0")):
+            state, parent = objects[state_id], objects[parent_id]
+            self.assertIn(state["_gvid"], parent["nodes"])
+            x, y = map(float, state["pos"].split(","))
+            x0, y0, x1, y1 = map(float, parent["bb"].split(","))
+            self.assertTrue(x0 < x < x1 and y0 < y < y1)
+        link = next(edge for edge in layout["edges"] if edge.get("id") == "l0")
+        self.assertEqual(link["ltail"], "cluster_e0")
+        self.assertEqual(link["lhead"], "cluster_e1")
+
+    def test_only_tagged_links_have_light_grey_dotted_strokes(self):
+        root = self.render(build_model())
+        tagged_count = 0
+        for group in members(root, "opm-link"):
+            tagged = group.get("data-kind") in {"tagged", "tagged_bidirectional"}
+            tagged_count += tagged
+            with self.subTest(link=group.get("id")):
+                shapes = [child for child in group
+                          if child.tag.rsplit("}", 1)[-1] in {"path", "polygon", "ellipse"}]
+                self.assertTrue(shapes)
+                for shape in shapes:
+                    self.assertEqual(shape.get("stroke"), "#999999" if tagged else "#374151")
+                line = group.find("svg:path", NS)
+                self.assertIsNotNone(line)
+                self.assertEqual(line.get("stroke-dasharray"), "1,5" if tagged else None)
+                label = group.find("svg:text", NS)
+                if tagged:
+                    self.assertIsNotNone(label)
+                    self.assertEqual(label.get("fill"), "#374151")
+                else:
+                    self.assertIsNone(label)
+        self.assertEqual(tagged_count, 4)
 
     def test_shapes_styles_and_shadows(self):
         model = build_model()
@@ -110,7 +241,7 @@ class RenderTests(unittest.TestCase):
                                      int(essence is Essence.PHYSICAL))
                     boundary = next(c for c in group if c.tag.endswith("polygon") and c.get("class") != "opm-shadow")
                     self.assertEqual(bool(boundary.get("stroke-dasharray")), affiliation is Affiliation.ENVIRONMENTAL)
-                    layout = json.loads(to_dot(model).pipe(format="json"))
+                    layout = json.loads(to_dot(model, include_legend=False).pipe(format="json"))
                     cluster = next(o for o in layout["objects"] if o["name"] == "cluster_e0")
                     x0, y0, x1, y1 = map(float, cluster["bb"].split(","))
                     for state_id in ("s0", "s1"):

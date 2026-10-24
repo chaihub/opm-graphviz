@@ -1,5 +1,6 @@
 """Graphviz rendering for the supported single-diagram OPM model."""
 
+import base64
 from copy import deepcopy
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -10,6 +11,9 @@ from .model import Affiliation, EntityKind, Essence, LinkKind, Model
 
 SVG = "http://www.w3.org/2000/svg"
 ET.register_namespace("", SVG)
+XLINK = "http://www.w3.org/1999/xlink"
+ET.register_namespace("xlink", XLINK)
+_LEGEND_PATH = Path(__file__).resolve().parents[1] / "docs" / "OPM legend.drawio.png"
 
 # Model subject -> target order is preserved. Tail is subject, head is target.
 # These are depiction choices from README.md, not generic OPM defaults.
@@ -34,7 +38,7 @@ def _text(value: str) -> str:
     return graphviz.nohtml(graphviz.escape(value))
 
 
-def to_dot(model: Model) -> graphviz.Digraph:
+def to_dot(model: Model, *, include_legend: bool = True) -> graphviz.Digraph:
     """Return DOT with automatic layout and all symbols except physical shadows.
 
     Requires a model with valid references. Use the parser API to validate OPL
@@ -108,6 +112,18 @@ def to_dot(model: Model) -> graphviz.Digraph:
         if link.label is not None:
             attrs["label"] = _text(link.label)
         dot.edge(endpoints[link.subject], endpoints[link.target], **attrs)
+    if include_legend:
+        if not _LEGEND_PATH.is_file():
+            raise FileNotFoundError(f"Legend image not found: {_LEGEND_PATH}")
+        with dot.subgraph() as legend:
+            legend.attr(rank="sink")
+            legend.node("opm_legend", label="", id="opm-legend",
+                        shape="box", style="solid,filled", color="black",
+                        fillcolor="white", penwidth="1", margin="0.12,0.12",
+                        image=str(_LEGEND_PATH), imagescale="true",
+                        **{"class": "opm-legend"})
+        for endpoint in endpoints.values():
+            dot.edge(endpoint, "opm_legend", style="invis", arrowhead="none")
     return dot
 
 
@@ -120,6 +136,12 @@ def _finish_svg(raw: bytes, model: Model) -> bytes:
     """
     root = ET.fromstring(raw)
     groups = {group.get("id"): group for group in root.iter(f"{{{SVG}}}g")}
+    if "opm-legend" in groups:
+        image = groups["opm-legend"].find(f"{{{SVG}}}image")
+        if image is None:
+            raise ValueError("Graphviz did not render the legend image")
+        encoded = base64.b64encode(_LEGEND_PATH.read_bytes()).decode("ascii")
+        image.set(f"{{{XLINK}}}href", f"data:image/png;base64,{encoded}")
     elements = [(f"e{i}", e) for i, e in enumerate(model.entities)]
     elements += [(f"s{i}", s) for i, s in enumerate(model.states)]
     elements += [(f"l{i}", link) for i, link in enumerate(model.links)]
@@ -156,14 +178,14 @@ def _finish_svg(raw: bytes, model: Model) -> bytes:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
-def render_svg(model: Model, output: Path) -> Path:
+def render_svg(model: Model, output: Path, *, include_legend: bool = True) -> Path:
     """Render a complete SVG, including shadows; return the output path.
 
     Uses the system `dot` executable through the Python graphviz package.
     Output directories are created; an existing output file is replaced only
     after rendering succeeds. Graphviz execution errors propagate to the caller.
     """
-    svg = _finish_svg(to_dot(model).pipe(format="svg"), model)
+    svg = _finish_svg(to_dot(model, include_legend=include_legend).pipe(format="svg"), model)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(svg)

@@ -1,7 +1,8 @@
 # Rendering proof of concept
 
 The renderer consumes a `Model`, constructed programmatically or returned by the
-[OPL parser](parsing.md). This example still constructs its model programmatically.
+[OPL parser](parsing.md). To render an OPL file from the terminal, use the
+[CLI](cli.md). The example below still constructs its model programmatically.
 The model and syntax rules remain unchanged.
 
 ## Running the example
@@ -41,6 +42,21 @@ render_svg(model, Path("build/supported.svg"))
 source metadata, creates missing output directories, and writes the final SVG.
 An existing output file is replaced only after rendering succeeds. The example
 also writes DOT for inspecting layout and marker attributes.
+
+## Legend
+
+By default, the supplied `docs/OPM legend.drawio.png` appears below the graph
+inside a one-point black box with padding. A Graphviz node uses the `image`
+attribute and preserves the image aspect ratio. Invisible edges keep it below
+all entities, including disconnected objects and objects containing states.
+The legend is decoration, with class/ID `opm-legend`, and has no model source metadata.
+
+Pass `include_legend=False` to either `to_dot` or `render_svg` to omit it,
+or use the CLI's `--no-legend` option. The reference image is used unchanged.
+A missing image is an error when the legend is enabled; disabling it does not
+require the asset. SVG post-processing embeds the original PNG as a data URI,
+so the final SVG is portable. DOT uses an absolute image path and requires the
+original image to remain available when rendered separately.
 
 ## Depictions
 
