@@ -1,0 +1,50 @@
+# Valid draft v0.1 coverage example; one diagram.
+object "Order".
+object "Priority Order" informatical systemic.
+object "Order 001" informatical systemic.
+object "Order Record" informatical environmental.
+object "Operator" physical environmental.
+object "Machine" physical systemic.
+object "Machine Component" physical systemic.
+object "Receipt" informatical systemic.
+
+process "Order Handling" informatical systemic.
+process "Priority Handling" informatical systemic.
+process "Handling Run 001" informatical environmental.
+process "Printing" physical systemic.
+
+"Order" has state "pending".
+"Order" has state "approved".
+"Order" has state "completed".
+
+# Aggregation: object/object and process/process.
+"Machine" consists of "Machine Component".
+"Order Handling" consists of "Printing".
+
+# Exhibition: all four allowed type combinations.
+"Order" exhibits "Order Record".
+"Machine" exhibits "Printing".
+"Order Handling" exhibits "Order Record".
+"Order Handling" exhibits "Priority Handling".
+
+# Specialization and instantiation for each entity type.
+"Priority Order" is an "Order".
+"Priority Handling" is "Order Handling".
+"Order 001" is an instance of "Order".
+"Handling Run 001" is an instance of "Order Handling".
+
+# Tagged links: both directions and both allowed type combinations.
+"Order" relates to "Receipt" as "documented by".
+"Order Handling" relates to "Printing" as "scheduled before".
+"Order" relates bidirectionally to "Order Record" as "corresponds to".
+"Printing" relates bidirectionally to "Delivery" as "coordinates with".
+
+# Procedural links: all five kinds.
+"Printing" consumes "Order Record".
+"Printing" yields "Receipt".
+"Order Handling" affects "Order".
+"Operator" handles "Order Handling".
+"Printing" requires "Machine".
+
+# Forward reference above; physical/environmental process styling.
+process "Delivery" physical environmental.

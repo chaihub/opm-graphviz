@@ -1,0 +1,17 @@
+object "Order".
+object "Machine" physical systemic.
+process "Handling".
+process "Printing".
+
+"Handling" changes "Order" from "pending" to "approved".
+"Handling" zooms into "Printing".
+"Handling" yields "Missing".
+"Handling" has state "ready".
+"Order" consumes "Machine".
+"Machine" handles "Handling".
+"Handling" requires "Order".
+object "Order".
+"Handling" affects "Order"
+"Order" relates to "Order" as "mirrors".
+"Handling" consumes "Order".
+"Handling" consumes "Order".
