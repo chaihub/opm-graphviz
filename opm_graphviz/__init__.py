@@ -1,1 +1,1 @@
-"""OPM model and, in subsequent steps, OPL parsing and diagram rendering."""
+"""OPM models, OPL parsing and validation, and Graphviz diagram rendering."""

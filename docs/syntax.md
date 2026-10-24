@@ -1,6 +1,6 @@
 # OPL-like input syntax — draft v0.1
 
-Status: proposed implementation contract.  Scope comes from README.md.
+Status: implemented input contract.  Scope comes from README.md.
 
 ## 1. Files, names, and statements
 
@@ -69,8 +69,8 @@ All endpoints must refer to declared objects or processes.
 | B is an A. | A and B = objects | Open normal arrow at A. |
 | B is A. | A and B = processes | Open normal arrow at A. |
 | B is an instance of A. | A and B = objects, or A and B = processes | Curve arrow at A. |
-| A relates to B as LABEL. | A and B = objects, or A and B = processes | Vee arrow at B, with LABEL as text. |
-| A relates bidirectionally to B as LABEL. | A and B = objects, or A and B = processes | Lvee arrows at both A and B, with LABEL as text. |
+| A relates to B as LABEL. | A and B = objects, or A and B = processes | Light grey dotted line with a light grey vee arrow at B, with LABEL as text. |
+| A relates bidirectionally to B as LABEL. | A and B = objects, or A and B = processes | Light grey dotted line with light grey lvee arrows at both A and B, with LABEL as text. |
 
 A and B are quoted names. `an` is a fixed keyword in object specialization, even
 when the name starts with a consonant. This deliberately follows the template in

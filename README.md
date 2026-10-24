@@ -23,8 +23,8 @@ A diagram generator + renderer for Object Process Language (OPL) descriptions. S
       - Exhibition/Characterization = tee arrow at A
       - Generaliztion/Specialization = open normal arrow at A
       - Classification/Instantiation =  curve arrow at A
-      - User-tagged single (as per text given by user) = vee arrow at B with text
-      - User-tagged bidirectional (as per text given by user) = lvee arrow at A and B with text
+      - User-tagged single (as per text given by user) = light grey dotted line with a light grey vee arrow at B and text
+      - User-tagged bidirectional (as per text given by user) = light grey dotted line with light grey lvee arrows at A and B and text
 3. Procedural Links between Entities:
    - Transforming Links:
       - Consumption (B consumes A) [A,B = O,P]
@@ -51,8 +51,8 @@ Any feature not explicitly mentioned above is unsupported.
 
 See the [draft syntax specification](docs/syntax.md), the
 [valid coverage example](examples/supported.opl), and the
-[diagnostic example](examples/diagnostics.opl). These propose the input contract;
-the parser and renderer are not implemented yet.
+[diagnostic example](examples/diagnostics.opl). The parser and validator implement
+this input contract; a rendering proof of concept is available below.
 
 ## Internal Model
 
@@ -64,13 +64,47 @@ python -m examples.supported_model
 python -m unittest discover -s tests -v
 ```
 
+## Rendering Proof of Concept
+
+Render the programmatic example from the repository root with the virtual
+environment activated:
+
+```bash
+python -m examples.render_supported
+```
+
+This writes [the SVG diagram](build/supported.svg) and its DOT source to `build/`.
+The example uses the internal model directly; it does not parse OPL input.
+The system Graphviz `dot` executable must be installed.
+See [rendering documentation](docs/rendering.md) for the API, symbol mapping,
+and limitations. Generated files in `build/` are Git-ignored.
+
+## Parsing OPL Input
+
+The parser reads UTF-8 OPL files and returns a validated model plus diagnostics:
+
+```python
+from opm_graphviz.parser import parse_file
+
+result = parse_file("examples/supported.opl")
+for diagnostic in result.diagnostics:
+    print(diagnostic)
+print(result.summary)
+model = result.require_model()
+```
+
+Errors prevent model output. Unsupported statements generate warnings and an
+incomplete-diagram summary. See [parser documentation](docs/parsing.md) for the
+API and an example of rendering the parsed model. The CLI is the next TODO.
+
 ## TODO
-[x] - Write a short syntax specification and example input. Include one example of every selected feature, plus unsupported and invalid statements with their expected diagnostics.
+- [x] Write a short syntax specification and example input. Include one example of every selected feature, plus unsupported and invalid statements with their expected diagnostics.
 - [x] Create a minimal internal model. Represent entities, states, typed links, and source locations independently of Graphviz. This will also support your later model-to-code comparisons.
-- Build a rendering proof of concept from that model. Produce one SVG containing every symbol and styling combination. Review visual correctness before adding parsing.
-- Implement the parser and validator. Parse declarations and relationships, resolve references, then check the endpoint restrictions in the README.
+- [x] Build a rendering proof of concept from that model. Produce one SVG containing every symbol and styling combination. Review visual correctness before adding parsing.
+- [x] Implement the parser and validator. Parse declarations and relationships, resolve references, then check the endpoint restrictions in the README.
 - Connect a small CLI. Generate SVG and optionally DOT, reporting diagnostics with line numbers. Clearly report when unsupported statements make the diagram incomplete.
 - Add focused tests. Check relationship direction, state ownership, invalid references, unsupported statements, and successful SVG rendering.
+- Add legend to generated graphs.
 
 ## License
 MIT

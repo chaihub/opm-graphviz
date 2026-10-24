@@ -115,7 +115,7 @@ class Model:
 
         This is a construction check, not the OPL validator. Lexical rules,
         relationship type restrictions, labels, self-links, duplicate links, and
-        user-facing diagnostic codes belong to the subsequent validator step.
+        user-facing diagnostic codes belong to the parser and validator modules.
         No human/inanimate object metadata is stored or checked.
         """
         entities: dict[str, Entity] = {}

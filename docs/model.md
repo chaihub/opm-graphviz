@@ -25,8 +25,8 @@ names, existing link endpoints, existing object-typed state owners, and unique
 state names per owner. Forward references work because checks run against all
 entities after construction. It raises `ValueError` on the first problem.
 
-This check deliberately does not replace the planned parser and semantic
-validator. It does not check link type combinations, duplicate links, self-links,
+This check deliberately does not replace the [parser and semantic
+validator](parsing.md). It does not check link type combinations, duplicate links, self-links,
 label rules, or lexical syntax, and does not produce OPL diagnostic codes.
 Human/inanimate metadata and rendering styles are absent from the data model.
 
