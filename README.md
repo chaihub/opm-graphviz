@@ -19,9 +19,9 @@ A diagram generator + renderer for Object Process Language (OPL) descriptions. S
    - Classification/Instantiation (B is an instance of A) [A,B = O,O or P,P]
    - User-tagged single / bidirectional (as per text given by user) [A,B = O,O or P,P]
    - Depiction:
-      - Aggregation/Participation = solid normal arrow at A
+      - Aggregation/Participation = open box at A
       - Exhibition/Characterization = tee arrow at A
-      - Generaliztion/Specialization = open normal arrow at A
+      - Generaliztion/Specialization = open diamond at A
       - Classification/Instantiation =  curve arrow at A
       - User-tagged one-way relation (as per text given by user) = light grey dotted line with a light grey vee arrow at B and text
       - User-tagged bidirectional relation (as per text given by user) = light grey dotted line with light grey lvee arrows at A and B and text
@@ -31,21 +31,25 @@ A diagram generator + renderer for Object Process Language (OPL) descriptions. S
       - Result (B yields A) [A,B = O,P]
       - Effect (B affects A) [A,B = O,P]
       - Depiction:
-         - Consumption = Hollow arrow at B
-         - Result = Hollow arrow at A
-         - Effect = Hollow arrow at A,B
+         - Consumption = filled arrow at B
+         - Result = filled arrow at A
+         - Effect = open arrow at A,B
    - Enabling Links:
       - Agent (A handles B) [A,B = O,P where A is human]
       - Instrument (B requires A) [A,B = O,P where A is inanimate]
       - Depiction:
-         - Agent = Filled dot at B
-         - Instrument = Hollow dot at B
+         - Agent = filled dot at B
+         - Instrument = open dot at B
 
 An OPL-like text description of the diagram is parsed and rendered. A warning is generated for every statement that is out of this scope.
 
 Scope is one diagram; no hierarchy, state transitions, or state-qualified links.
 
-The visual constructs defined in OPM have been retained wherever possible, except when constrained by graphviz capabilities.
+The visual constructs defined in OPM have been retained wherever possible, except when constrained by graphviz capabilities and making them more meaningful to me.
+
+Conventions:
+- In a collection of diagrams representing the same system, no two Objects or Processes (including child entities) should have the same name. E.g. there should not be an "Initialize" Process as a child of two different Processes, unless it is identical.
+- Sequencing of child Processes is identified by the numeric index in the child's name, e.g. "1 Initialize_sim", "2 Execute_sim", etc.
 
 Any feature not explicitly mentioned above is unsupported.
 

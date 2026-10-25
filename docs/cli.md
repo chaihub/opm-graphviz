@@ -51,7 +51,7 @@ without a Python traceback. Expected input/output filesystem failures are also
 reported without tracebacks.
 
 The supplied legend appears below the diagram inside a thin black box by default.
-Its PNG is embedded in the final SVG, so the SVG can be moved or shared alone.
+Its SVG is embedded in the final SVG, so the SVG can be moved or shared alone.
 DOT references the original image by absolute path and requires that asset.
 
 ## Output behavior
